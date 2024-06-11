@@ -1,0 +1,444 @@
+---
+title: "Statistical Analysis of CPI and Income"
+output: html_notebook
+---
+By: Aditya Jain, Ahmed Omar, Yedu Krishna
+
+## **Introduction**
+
+The Income and Cost of day to day items are the catchphrase of today's news because it affects everyone. CPI and income, two variables selected as the data sets for statistical analysis, offer valuable insights into economic trends and consumer spending patterns. “The Consumer Price Index (CPI) represents changes in prices as experienced by Canadian consumers. It measures price changes by comparing, through time, the cost of a fixed basket of goods and services” (Statistics Canada, 2023). As our group contains international students, effectively managing our money and rent are our main priority in Canada and where in Canada. So, we have done our research for that. That research motivated us to pick these specific data sets.
+
+ 
+
+Throughout the last four decades, the price of goods has essentially been going up as highlighted in our Data 601 project, whereas the Average Income across Canada and across provinces has been going up, but not at the same rate as the CPI. Although most of us understand that CPI and Income are correlated, many of us do not know just how statistically correlated the two variables are. Therefore, one objective of this project is to statistically determine the correlation between CPI and Average Income though linear regression while being able to utilize the created model to predict the future average income based on a theoretical future CPI value. This will require us to test the following hypothesis:
+
+$$
+\begin{eqnarray}
+\text{H}_{0} &:& \ \text{There is no significant relationship between CPI and income.} \\
+\text{H}_{A} &:& \ \text{There is a significant relationship between CPI and income.}
+\end{eqnarray}
+$$
+Furthermore, the second statistical test will revolve around the comparisson of means between four different provinces, which include Ontario (ON), British Columbia (BC), Nova Scotia (NS), and Prince Edward Island (PEI). These provinces were selected due to the higher income of ON and BC, whereas NS and PEI where chosen since they are relatively low in camparison. Ultimately, our objective is to see if there any income disparities that exist between these provinces. To do so, our hypothesis will be as follows:
+
+$$
+\begin{eqnarray}​
+\text{H}_{0} &:& \ \text{The difference between the two means is equal to 0} \\​
+\text{H}_{A} &:& \ \text{The difference between the two means is NOT equal to 0}​
+\end{eqnarray}​
+$$
+
+## **Datasets**
+
+We will focus on the use of two datasets in this report: **Income of individuals by age group, sex and income** as well as **Consumer Price Index, annual average, not seasonally adjusted** (Statistics Canada, 2023). Both datasets are available and accessible for the public through the Statistics Canada website which is a publisher of open data, and both are structured and tabular data with more columns than rows. 
+
+*This licence is issued on behalf of His Majesty the King in Right of Canada, as represented by the Minister for Statistics Canada ("Statistics Canada") to you (an individual or a legal entity that you are authorized to represent) (Statistics Canada, 2023).*
+
+For the purpose of this project, we simplified the data by only selecting the provinces that we wish to work on. This has been saved as "canada_data.csv."
+
+
+```{r}
+# Load the canada_data.csv file  
+data = read.csv("canada_data (1).csv")
+
+# Isolate Canada from data
+Canada_data = data[data$Geography == "Canada", ]
+Canada_data
+
+# Plot CPI for Canada
+ggplot(Canada_data, aes(x = Date, y = CPI)) + geom_line(color = "red") + labs(title = "CPI Over Past Four Decades")
+
+# Plot Income for Canada
+ggplot(Canada_data, aes(x = Date, y = Income)) + geom_line(color = "red") + labs(title = "Income Over Past Four Decades")
+
+```
+**In the above graphs, both CPI and Income have been increasing over the past four decades but how strong is their relation**
+
+## **Guiding Question 1 – Is CPI correlated with Average Income for Canada?**
+
+
+$$
+\begin{eqnarray}
+\text{H}_{0} &:& \ \text{There is no significant relationship between CPI and income.} \\
+\text{H}_{A} &:& \ \text{There is a significant relationship between CPI and income.}
+\end{eqnarray}
+$$
+
+
+```{r}
+# Use ggplot to visualize CPI and Income from Canada_data dataframe
+ggplot(Canada_data, aes(x = CPI, y = Income)) +  geom_point(size=1, col='blue') + xlab("CPI") + ylab("Income") + ggtitle("CPI to Income") +  geom_smooth(method="lm", color = "red")
+```
+**In the above graph, we can see that most of the points are aligning with the red line with a few exceptions.**
+
+```{r}
+# Use linear regression model for Canada data
+model = lm(Income ~ CPI, data = Canada_data)
+summary(model)
+```
+**From the model summary, we get to know that the Y-intercept (β₀) is 31103.848 and the Slope (β₁) is 145.391, respectively**
+
+```{r}
+# Run normality test and proof of homoscedasticity to see if the conditions for Linear Regression are met
+
+leverage_values = hatvalues(model)
+standardized_eis = rstandard(model)
+absstandardized_eis = sqrt(abs(standardized_eis))
+
+CPI_value = Canada_data$CPI
+Income_value = Canada_data$Income
+predictIncome = model$fitted.values
+model_eis = model$residuals
+
+# Create a dataframe for the model
+model.df = data.frame (CPI_value, Income_value, predictIncome, model_eis, leverage_values, standardized_eis, absstandardized_eis)
+```
+
+
+
+```{r}
+# Check normal probability using normal probability plot 
+ggplot(model.df, aes(sample = standardized_eis)) + stat_qq(col="blue", size = 1)  + stat_qqline(col='red') + ggtitle("Normal Probability Plot of Standardized Residuals")
+```
+
+**When checking the condition of normality, most of the points are falling on the line with some exceptions at both extreme ends of the red line but we can assume that the model data frame created is normally distributed**
+
+```{r}
+# Check homoscedasticity
+ggplot(model.df, aes(x = Income_value, y = standardized_eis)) +  geom_point(size=1, col='blue', position="jitter") + xlab("Income") + ylab("Standardized Risidualizes") + ggtitle("Plot with Income to Standardized Risiduals") + geom_hline(yintercept=0, color="red", linetype="dashed")
+
+# Using stat_smooth instead of geom_hline
+ggplot(model.df,aes(x = Income_value,y=standardized_eis)) + geom_point(size=1, col='blue', position="jitter") + geom_smooth(col="blue", linetype="dashed")
+```
+
+**When checking the condition of homoscedasticity, the variance/spread of the residuals remains roughly the same as we move along the zero line.**
+
+```{r}
+# Bootstrap for correlation coefficient to get confidence interval of the correlation value
+
+# Set the seed for reproducibility
+set.seed(123)
+
+# Number of bootstrap samples
+nsims = 1000
+
+# Create an empty vector to store bootstrap correlations
+bootstrap_correlations = numeric(nsims)
+
+# Perform bootstrapping
+for (i in 1:nsims) {
+  sampled_data = Canada_data[sample(nrow(Canada_data), replace = TRUE), ]
+  
+  # Calculate the correlation between CPI and Average Income in the sampled data
+  correlation = cor(sampled_data$CPI, sampled_data$Income)
+  
+  # Store the correlation in the vector
+  bootstrap_correlations[i] = correlation
+}
+
+bootstrap_correlations.df = data.frame(bootstrap_correlations)
+
+
+lower_bound = qdata(~bootstrap_correlations, 0.025, data = bootstrap_correlations.df)
+upper_bound = qdata(~bootstrap_correlations, 0.975, data = bootstrap_correlations.df)
+
+# 95% Bootstrap Confidence Interval
+cat("Bootstrap 95% Confidence Interval:\n")
+cat("Lower Bound:", lower_bound, "\n")
+cat("Upper Bound:", upper_bound, "\n")
+
+```
+
+```{r}
+# Plot histogram
+ggplot(bootstrap_correlations.df, aes(x = bootstrap_correlations)) +
+  geom_histogram(binwidth = 0.002, fill = "blue", color = "black") +
+  geom_vline(xintercept = c(lower_bound, upper_bound), color = "red", linetype = "dashed", size = 1) + labs(title = "Bootstrap of correlation", x = "", y = "Frequency") 
+
+```
+**By using bootstrapping for the correlation coefficient, the 95% confidence interval obtained is 0.9174 to 0.9726. With this, we can be 95% confident that the true correlation coefficient for the linear regression model lies in between this range. Below, we will conduct the linear regression model and get the actual correlation coefficient value.**
+
+
+```{r}
+# HO = CPI and Income are independent (NOT related)
+# HA = CPI and Income are NOT independent (Related)
+
+# Use linear regression model for Canada
+model = lm(Income ~ CPI, data = Canada_data)
+summary(model)
+
+# Standard error:
+se_model = summary(model)$sigma 
+se_model
+
+# R-squared value:
+rsquared(model)
+
+# Sqaure root of R-sqaured value = will give us the same as the correlation coefficient above
+sqrt(rsquared(model))
+
+# Using Correlation 
+correlation = cor (~CPI, ~Income, data = Canada_data)
+correlation
+```
+
+**The Formula for the Linear Model to help with prediction:**
+
+$$
+\widehat{{Income}}_i = 31103.85 + 145.39 \cdot CPI_i
+$$
+
+
+```{r}
+# Predict income and calculate the prediction interval for the a CPI value at 200
+
+# Check CPI value at 136.0
+predict(model, newdata = data.frame((CPI = 136.0)), interval="conf") 
+
+# Check CPI value at 141.6
+predict(model, newdata = data.frame((CPI = 141.6)), interval="conf") 
+
+# Check the model for that exact point 
+tail(Canada_data,4)
+```
+
+
+```{r}
+# Predict income and calculate the prediction interval for the a CPI value at 200
+predict(model, newdata = data.frame((CPI = 200)), interval = "predict")
+```
+## **Results**
+
+**Guiding Question 1 – Is CPI correlated with Average Income for Canada**
+
+The R-squared value is 0.900 which is close to 1.
+
+The correlation coefficient (sqrt of r-squared) is 0.949. 
+
+This indicates a strong positive linear correlation, meaning that as CPI increases, Income also tends to increase.
+
+P-Value: The P-value obtained is 2.2e^-16, which is less than an alpha of 0.05. This p-value means we can reject the null hypothesis in favor for the alternative which states that CPI and Income may have a significant relationship.
+
+Through linear regression analysis, we can observe a strong positive linear correlation between the Consumer Price Index (CPI) and Income for Canada. The low p-value provides evidence to reject the null hypothesis and conclude that there is a significant relationship between these two variables.
+
+Using the predict function, we can assume that when the CPI is at 200, the Average Income for Canadians will be in the range 57181.51 to 63182.78. The fitted value based on the theoretical model is 60182.15. 
+
+## **Guiding Question 2 - Are there any income disparities between different provinces ?**
+
+```{r}
+# Compare the mean difference of income between two provinces
+# Isolate data by province 
+
+BC_data = data[data$Geography == "British Columbia", ]
+BC_data
+
+ON_data = data[data$Geography == "Ontario", ]
+ON_data
+
+PEI_data = data[data$Geography == "Prince Edward Island", ]
+PEI_data
+
+NS_data = data[data$Geography == "Nova Scotia", ]
+NS_data
+```
+
+
+```{r}
+# Plot the average income for each of the provinces we selected
+
+averages = data %>%
+  group_by(Geography) %>%
+  summarise(AverageIncome = mean(Income, na.rm = TRUE))
+
+ggplot(data = averages, aes(x = Geography, y = AverageIncome, fill = Geography)) + geom_bar(stat = "identity", position = "dodge") +labs(y = "Average Income", title = "Average Income by Province")
+
+
+```
+
+$$
+\begin{eqnarray}​
+\text{H}_{0} &:& \ \text{The difference between the two means is equal to 0} \\​
+\text{H}_{A} &:& \ \text{The difference between the two means is NOT equal to 0}​
+\end{eqnarray}​
+$$
+
+```{r}
+# Check for normality for the average income in BC, ON, PEI, and NS
+
+# Central Limit Theorem = if you take a sample mean from the population and we reach a certain point (n = 25 for example), we will reach a normal distribution
+
+ggplot(BC_data, aes(sample = Income)) + stat_qq(col="blue", size = 1)  + stat_qqline(col='red') + ggtitle("Normal Probability Plot of Average Income for BC")
+
+ggplot(ON_data, aes(sample = Income)) + stat_qq(col="blue", size = 1)  + stat_qqline(col='red') + ggtitle("Normal Probability Plot of Average Income for ON")
+
+ggplot(PEI_data, aes(sample = Income)) + stat_qq(col="blue", size = 1)  + stat_qqline(col='red') + ggtitle("Normal Probability Plot of Average Income for PEI")
+
+ggplot(NS_data, aes(sample = Income)) + stat_qq(col="blue", size = 1)  + stat_qqline(col='red') + ggtitle("Normal Probability Plot of Average Income for NS")
+```
+
+```{r}
+# H0: The difference between the two means is equal to 0 
+# HA: The difference between the two means is NOT equal to 0
+
+observed_mean_difference = mean(ON_data$Income) - mean(BC_data$Income)
+observed_mean_difference
+
+n_ON = 41
+n_BC = 41
+
+# Create vector for the difference of means
+nsims = 1000
+
+sample_ON = numeric(nsims)
+sample_BC = numeric(nsims)
+bootstrap_mean_difference = numeric(nsims)
+
+for (i in 1:nsims){
+  sample_ON[i] = mean(sample(ON_data$Income, n_ON, replace = TRUE))
+  sample_BC[i] = mean(sample(BC_data$Income, n_BC, replace = TRUE))
+  bootstrap_mean_difference[i] = sample_ON[i] - sample_BC[i]
+}
+# Convert bootstrap data into a dataframe
+bootstrap_mean_difference.df = data.frame(bootstrap_mean_difference)
+
+# Plot bootstrap distribution
+ggplot(data = bootstrap_mean_difference.df, aes(x = bootstrap_mean_difference)) + geom_histogram(binwidth = 100, fill = "blue", color= "black") + xlab("Boostrapping Mean Difference") + ggtitle("Bootstrap Distribution for Mean Difference") + geom_vline(xintercept = observed_mean_difference, color = "red")
+
+# Use the qdata function
+qdata(~bootstrap_mean_difference, data = bootstrap_mean_difference.df, c(0.025, 0.975))
+```
+
+**The 95% confidence interval obtained is 1863.171 to 4617.073, which means that we are 95% confident the true mean difference between the income of ON and BC is between that interval.**
+
+```{r}
+
+# H0: The difference between the two means is equal to 0 
+# HA: The difference between the two means is NOT equal to 0
+
+# Using the t.test function 
+
+t.test(ON_data$Income, BC_data$Income, data = Canada_data, conf.level = 0.95, alternative = "two.sided", var.equal = FALSE)
+```
+
+**The p-value obtained is 2.105e-05 which is less than an alpha value of 0.05. This means that we have statistical evidence to reject the null hypothesis that states that the difference between the two means is equal to 0. This means that there is a significant difference in average income for ON and BC.**
+
+```{r}
+# H0: The difference between the two means is equal to 0 
+# HA: The difference between the two means is NOT equal to 0
+
+observed_mean_difference = mean(NS_data$Income) - mean(PEI_data$Income)
+observed_mean_difference
+
+n_NS = 41
+n_PEI = 41
+
+# Create vector for the difference of means
+nsims = 1000
+
+sample_NS = numeric(nsims)
+sample_PEI = numeric(nsims)
+bootstrap_mean_difference = numeric(nsims)
+
+for (i in 1:nsims){
+  sample_NS[i] = mean(sample(NS_data$Income, n_NS, replace = TRUE))
+  sample_PEI[i] = mean(sample(PEI_data$Income, n_PEI, replace = TRUE))
+  bootstrap_mean_difference[i] = sample_NS[i] - sample_PEI[i]
+}
+# Convert bootstrap data into a dataframe
+bootstrap_mean_difference.df = data.frame(bootstrap_mean_difference)
+
+# Plot bootstrap distribution
+ggplot(data = bootstrap_mean_difference.df, aes(x = bootstrap_mean_difference)) + geom_histogram(binwidth = 100, fill = "blue", color= "black") + xlab("Boostrapping Mean Difference") + ggtitle("Bootstrap Distribution for Mean Difference") + geom_vline(xintercept = observed_mean_difference, color = "red")
+
+# Use the qdata function
+qdata(~bootstrap_mean_difference, data = bootstrap_mean_difference.df, c(0.025, 0.975))
+```
+
+**The 95% confidence interval obtained is 4718.415 to 8390.793, which means that we are 95% confident the true mean difference between the income of NS and PEI is between that interval.**
+
+```{r}
+# H0: The difference between the two means is equal to 0 
+# HA: The difference between the two means is NOT equal to 0
+
+# Using the t.test function 
+
+t.test(NS_data$Income, PEI_data$Income, data = Canada_data, conf.level = 0.95, alternative = "two.sided", var.equal = FALSE)
+```
+
+**The p-value obtained is 3.783e-09 which is less than an alpha value of 0.05. This means that we have statistical evidence to reject the null hypothesis that states that the difference between the two means is equal to 0. This means that there is a significant difference in average income for NS and PEI.**
+
+```{r}
+# H0: The difference between the two means is equal to 0 
+# HA: The difference between the two means is NOT equal to 0
+
+observed_mean_difference = mean(ON_data$Income) - mean(PEI_data$Income)
+observed_mean_difference
+
+# Create vector for the difference of means
+nsims = 1000
+
+sample_ON = numeric(nsims)
+sample_PEI = numeric(nsims)
+bootstrap_mean_difference = numeric(nsims)
+
+for (i in 1:nsims){
+  sample_ON[i] = mean(sample(ON_data$Income, n_ON, replace = TRUE))
+  sample_PEI[i] = mean(sample(PEI_data$Income, n_PEI, replace = TRUE))
+  bootstrap_mean_difference[i] = sample_ON[i] - sample_PEI[i]
+}
+# Convert bootstrap data into a dataframe
+bootstrap_mean_difference.df = data.frame(bootstrap_mean_difference)
+
+# Plot bootstrap distribution
+ggplot(data = bootstrap_mean_difference.df, aes(x = bootstrap_mean_difference)) + geom_histogram(binwidth = 100, fill = "blue", color= "black") + xlab("Boostrapping Mean Difference") + ggtitle("Bootstrap Distribution for Mean Difference") + geom_vline(xintercept = observed_mean_difference, color = "red")
+
+# Use the qdata function
+qdata(~bootstrap_mean_difference, data = bootstrap_mean_difference.df, c(0.025, 0.975))
+```
+**The 95% confidence interval obtained is 4577.805 to 8444.512, which means that the we are 95% confidence that the true mean difference between the average income of ON and PEI is between that interval.**
+
+```{r}
+# H0: The difference between the two means is equal to 0 
+# HA: The difference between the two means is NOT equal to 0
+
+# Using the t.test function 
+
+t.test(ON_data$Income, PEI_data$Income, data = Canada_data, conf.level = 0.95, alternative = "two.sided", var.equal = FALSE)
+```
+
+**The p-value obtained is 2.2e-16 which is less than an alpha value of 0.05. This means that we have statistical evidence to reject the null hypothesis that states that the difference between the two means is equal to 0. This means that there is a significant difference in average income for ON and PEI.**
+
+## **Results**
+
+**Guiding Question 2 - Are there any income disparities between different provinces ?**
+
+The difference in average income for ON and BC is: $3231
+
+The difference in average income for NS and PEI is: $6495
+
+The difference in average income for ON and PEI is: $16095 
+
+Overall, there exists statistically significant difference between the means for different provinces.This means we can assume that there is income disparity across these provinces
+
+
+## **Things to Note**
+
+We treated the population data provided by Statistics Canada as sample data
+
+We are only looking at 2 variables, CPI and Average Income
+
+We obtained p-value of 2.2e^-16 for three of the methods used. This is because R's limit is at that p-value. This means most of the time, we are in favor of the alternative hypothesis.
+
+## **References**
+
+Lord, Craig. (2023, January 6). Canadian workers’ wages are on the rise. Can they keep
+  pace with inflation? Retrieved September 27, 2023, from
+  https://globalnews.ca/news/9392311/canada-workers-wages-inflation/amp/
+
+Statistics Canada. (n.d.). Consumer Price Index, annual average, not seasonally          adjusted. Retrieved September 17, 2023, from 
+  https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1810000501
+
+Statistics Canada. (n.d.). Consumer price index portal. Retrieved September 17, 2023,    from  
+  https://www.statcan.gc.ca/en/subjects-start/prices_and_price_indexes/consumer_price_indexes
+
+Statistics Canada. (n.d.). Income of individuals by age group, sex and incomesource.     Retrieved September 17, 2023, from 
+  https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1110023901&pickMembers%5B0%5D=1.1&pickMembers%5B1%5D=2.1&pickMembers%5B2%5D=3.1&pickMembers%5B3%5D=4.1&cubeTimeFrame.startYear=1981&cubeTimeFrame.endYear=2021&referencePeriods=19810101%2C20210101
