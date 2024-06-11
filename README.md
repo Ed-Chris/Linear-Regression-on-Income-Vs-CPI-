@@ -66,3 +66,12 @@ Overall, there are statistically significant differences in income means between
 - We treated the population data provided by Statistics Canada as sample data.
 - The analysis focused on two variables: CPI and Average Income.
 - We obtained a p-value of 2.2e^-16 for multiple tests, which is due to R's limit at that p-value, consistently supporting the alternative hypothesis.
+
+## Acknowledgments
+This project was inspired by various statistical and data science resources. Special thanks to the open-source community for providing the tools and libraries used in this project. We also acknowledge Statistics Canada for providing the datasets used in this analysis.
+
+## References
+- Lord, Craig. (2023, January 6). Canadian workers’ wages are on the rise. Can they keep pace with inflation? Retrieved September 27, 2023, from Global News
+- Statistics Canada. (n.d.). Consumer Price Index, annual average, not seasonally adjusted. Retrieved September 17, 2023, from Statistics Canada
+- Statistics Canada. (n.d.). Consumer price index portal. Retrieved September 17, 2023, from Statistics Canada
+- Statistics Canada. (n.d.). Income of individuals by age group, sex and income source. Retrieved September 17, 2023, from Statistics Canada
