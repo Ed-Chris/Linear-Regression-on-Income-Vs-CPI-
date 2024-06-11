@@ -11,6 +11,8 @@ This project investigates the relationship between the Consumer Price Index (CPI
 - [Guiding Questions and Visualizations](#guiding-questions-and-visualizations)
 - [Results](#results)
 - [Things to Note](#things-to-note)
+- [Acknowledgments](#acknowledgments)
+- [References](#references)
 
 ## Introduction
 The Income and Cost of day-to-day items are critical topics in today's news as they affect everyone. CPI and income, two variables selected for statistical analysis, offer valuable insights into economic trends and consumer spending patterns. The Consumer Price Index (CPI) represents changes in prices experienced by Canadian consumers. It measures price changes by comparing, through time, the cost of a fixed basket of goods and services (Statistics Canada, 2023).
